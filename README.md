@@ -1,6 +1,8 @@
 ## Sending funds to crowdloan contributors for Centrifuge
 ### March 2024
+This repo has been created in an effort to help the remaining crowdloan contributors claim their rewards sending the necessary fees for the transfer to happen. The script is intended to run only once and not again after the transfers are done but will be kept here for the records.
 
+#### Contents:
 The `getUniqueAddresses.js` script is designed to fetch unique addresses from Centrifuge's subscan API. It queries for an initial transfer previously done on-chain to all crowdloan contributors where 0.001CFG was sent. The script tries to cincumvent Subscan limitations on API requests/s and max_pages by querying for the remaining block numbers once limits are reached.
 Once all unique addresses are collected, they are saved to a JSON file named `uniqueAddresses.json`. 
 It's important to note that an API key is required for the requests, which needs to be added where `'YOUR_API_KEY'` is mentioned in the code. A free subscription is enough.
