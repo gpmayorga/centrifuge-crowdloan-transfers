@@ -13,7 +13,7 @@ const wsProvider = new WsProvider('wss://fullnode.centrifuge.io');
 
 // Custom log function to output to both console and file
 function logToFileAndConsole(message) {
-    logToFileAndConsole(message);
+    console.log(message);
     const date = new Date().toISOString();
     message = `${date}: ${message}`;
     fs.appendFileSync('transactions.log', message + '\n', 'utf8');
