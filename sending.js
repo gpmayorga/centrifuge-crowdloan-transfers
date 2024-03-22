@@ -18,7 +18,6 @@ function logToFileAndConsole(message) {
     message = `${date}: ${message}`;
     fs.appendFileSync('transactions.log', message + '\n', 'utf8');
   }
-
 async function sendCFG() {
   const api = await ApiPromise.create({ provider: wsProvider });
   const keyring = new Keyring({ type: 'sr25519' });
@@ -26,14 +25,17 @@ async function sendCFG() {
   const sender = keyring.addFromUri('YOUR_SEED_PHRASE');
   let failedAddresses = new Set()
   let amountSent = 0
+  let batchTx = []
+  let counter = 0
+
   for (const recipientAddress of addresses) {
     try {
-      // Create a transfer transaction and sign it
-      const transfer = api.tx.balances.transfer(recipientAddress, amount);
-      const hash = await transfer.signAndSend(sender);
+      // const nonce = await api.rpc.system.accountNextIndex(sender);
+      const hash = await api.tx.balances.transfer(recipientAddress, amount).signAndSend(sender, { nonce: -1 });
       logToFileAndConsole(`Sending 0.002CFG to ${recipientAddress}`)
       amountSent += 0.002;
       logToFileAndConsole(`Transaction sent with hash: ${hash}`);
+      await new Promise(resolve => setTimeout(resolve, 2500));
     } catch (error) {
       logToFileAndConsole(`Error sending to ${recipientAddress}:`, error);
       failedAddresses.add(recipientAddress);
@@ -50,7 +52,13 @@ async function sendCFG() {
   }
 
   fs.writeFileSync(failedAddressesPath, JSON.stringify(Array.from(failedAddresses), null, 2));
-  logToFileAndConsole(`${failedAddresses.size} addresses failed and were saved to failedAddresses.json for retry.`);
+  if(failedAddresses.size > 0){
+    logToFileAndConsole(`${failedAddresses.size} addresses failed and were saved to failedAddresses.json for retry.`);
+  }
+  else{
+    logToFileAndConsole("All transfers succeded, closing RPC connections...")
+  }
+  
   await api.disconnect();
 }
 
