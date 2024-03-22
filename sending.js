@@ -19,39 +19,37 @@ function logToFileAndConsole(message) {
     fs.appendFileSync('transactions.log', message + '\n', 'utf8');
   }
 async function sendCFG() {
+  // Make a backup if the file exists, for record keeping
+  if (fs.existsSync('failedAddresses.json')) {
+    const backupPath = `failedAddresses_${Math.floor(Math.random() * 100)}.json`;
+    fs.copyFileSync('failedAddresses.json', backupPath);
+    fs.unlinkSync(backupPath);
+  }
   const api = await ApiPromise.create({ provider: wsProvider });
   const keyring = new Keyring({ type: 'sr25519' });
   // Add your account to the keyring using the seed phrase
   const sender = keyring.addFromUri('YOUR_SEED_PHRASE');
   let failedAddresses = new Set()
-  let amountSent = 0
   let batchTx = []
-  let counter = 0
 
   for (const recipientAddress of addresses) {
-    try {
-      // const nonce = await api.rpc.system.accountNextIndex(sender);
-      const hash = await api.tx.balances.transfer(recipientAddress, amount).signAndSend(sender, { nonce: -1 });
-      logToFileAndConsole(`Sending 0.002CFG to ${recipientAddress}`)
-      amountSent += 0.002;
-      logToFileAndConsole(`Transaction sent with hash: ${hash}`);
-      await new Promise(resolve => setTimeout(resolve, 2500));
-    } catch (error) {
-      logToFileAndConsole(`Error sending to ${recipientAddress}:`, error);
-      failedAddresses.add(recipientAddress);
+    const transfer = api.tx.balances.transfer(recipientAddress, amount);
+
+    if (batchTx.length === 15 || recipientAddress === addresses[addresses.length - 1]) {
+      try {
+        const hash = await api.tx.utility.batch(batchTx).signAndSend(sender, { nonce: -1 });
+        logToFileAndConsole(`Batch of ${batchTx.length} transactions sent with hash: ${hash}`);
+        logToFileAndConsole(`Last address in this batch: ${recipientAddress}`)
+      } catch (error) {
+        logToFileAndConsole(`Error sending batch transaction:`, error);
+        batchTx.forEach(tx => failedAddresses.add(tx.args[0].toString()));
+        // Update the failedAddresses.json file immediately after catching the error
+        fs.writeFileSync('failedAddresses.json', JSON.stringify(Array.from(failedAddresses), null, 2));
+      }
+      batchTx = []; // Empty the transaction array for the next batch
     }
   }
-  logToFileAndConsole(`Total amount sent: ${amountSent}`)
-  const failedAddressesPath = 'failedAddresses.json';
   
-  // Make a backup if the file exists, for record keeping
-  if (fs.existsSync(failedAddressesPath)) {
-    const backupPath = `failedAddresses_${Math.floor(Math.random() * 100)}.json`;
-    fs.copyFileSync(failedAddressesPath, backupPath);
-    fs.unlinkSync(backupPath);
-  }
-
-  fs.writeFileSync(failedAddressesPath, JSON.stringify(Array.from(failedAddresses), null, 2));
   if(failedAddresses.size > 0){
     logToFileAndConsole(`${failedAddresses.size} addresses failed and were saved to failedAddresses.json for retry.`);
   }
